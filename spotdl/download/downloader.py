@@ -6,19 +6,20 @@ import concurrent.futures
 from spotdl.download.embed_metadata import set_id3_data
 import sys
 import traceback
+import pafy
 
 from pathlib import Path
 
 # ! The following are not used, they are just here for static typechecking with mypy
 from typing import List, Optional
 
-from pytube import YouTube
-
 from spotdl.download.progressuiHandlers import DisplayManager
 from spotdl.download.trackingfileHandlers import DownloadTracker
 from spotdl.search.songObj import SongObj
 from spotdl.download import ffmpeg
 
+# This API Key is limited, restricted and specially made for spotDL
+pafy.set_api_key("AIzaSyDA9IEQh75kkkx6sCy_zg5kPTT2hnkdPbk")
 
 # ==========================
 # === Base functionality ===
@@ -68,7 +69,6 @@ def _get_smaller_file_path(input_song: SongObj, output_format: str) -> Path:
 
 
 def _get_converted_file_path(song_obj: SongObj, output_format: str = None) -> Path:
-
     # ! we eliminate contributing artist names that are also in the song name, else we
     # ! would end up with things like 'Jetta, Mastubs - I'd love to change the world
     # ! (Mastubs REMIX).mp3' which is kinda an odd file name.
@@ -257,20 +257,9 @@ class DownloadManager:
                 return None
 
             # download Audio from YouTube
-            if dispayProgressTracker:
-                youtubeHandler = YouTube(
-                    url=songObj.get_youtube_link(),
-                    on_progress_callback=dispayProgressTracker.pytube_progress_hook,
-                )
+            youtubeHandler = pafy.new(songObj.get_youtube_link())
 
-            else:
-                youtubeHandler = YouTube(songObj.get_youtube_link())
-
-            trackAudioStream = (
-                youtubeHandler.streams.filter(only_audio=True)
-                .order_by("bitrate")
-                .last()
-            )
+            trackAudioStream = youtubeHandler.getbestaudio()
             if not trackAudioStream:
                 print(
                     f'Unable to get audio stream for "{songObj.get_song_name()}" '
@@ -280,7 +269,7 @@ class DownloadManager:
                 return None
 
             downloadedFilePathString = await self._perform_audio_download_async(
-                convertedFilePath.name, tempFolder, trackAudioStream
+                convertedFilePath.name, tempFolder, trackAudioStream, dispayProgressTracker
             )
 
             if downloadedFilePathString is None:
@@ -327,7 +316,7 @@ class DownloadManager:
                 raise e
 
     async def _perform_audio_download_async(
-        self, convertedFileName, tempFolder, trackAudioStream
+        self, convertedFileName, tempFolder, trackAudioStream, dispayProgressTracker
     ):
         # ! The following function calls blocking code, which would block whole event loop.
         # ! Therefore it has to be called in a separate thread via ThreadPoolExecutor. This
@@ -339,17 +328,20 @@ class DownloadManager:
             convertedFileName,
             tempFolder,
             trackAudioStream,
+            dispayProgressTracker
         )
 
-    def _perform_audio_download(self, convertedFileName, tempFolder, trackAudioStream):
+    def _perform_audio_download(self, convertedFileName, tempFolder, trackAudioStream,
+                                dispayProgressTracker):
         # ! The actual download, if there is any error, it'll be here,
         try:
-            # ! pyTube will save the song in .\Temp\$songName.mp4 or .webm,
-            # ! it doesn't save as '.mp3'
+            # ! pyTube will save the song in .\Temp\$songName.mp3, but the file extension may vary,
             downloadedFilePath = trackAudioStream.download(
-                output_path=tempFolder, filename=convertedFileName, skip_existing=False
+                filepath=f"./{tempFolder}/{convertedFileName}",
+                quiet=True,
+                callback=dispayProgressTracker.pafy_progress_hook
             )
-            return downloadedFilePath
+            return f"./{tempFolder}/{convertedFileName}"
         except:  # noqa:E722
             # ! This is equivalent to a failed download, we do nothing, the song remains on
             # ! downloadTrackers download queue and all is well...

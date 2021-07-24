@@ -20,7 +20,6 @@ from typing import (
     Optional,
 )
 
-
 # =============
 # === Theme ===
 # =============
@@ -242,23 +241,19 @@ class _ProgressTracker:
         self.progress = 100
         self.update("Skipping")
 
-    def pytube_progress_hook(self, stream, chunk, bytes_remaining) -> None:
+    def pafy_progress_hook(self, total, recvd, ratio, rate, eta):
         """
-        Progress hook built according to pytube's documentation. It is called each time
+        Progress hook built according to pafy's documentation. It is called each time
         bytes are read from youtube.
         """
 
         # ! This will be called until download is complete, i.e we get an overall
 
-        fileSize = stream.filesize
-
         # ! How much of the file was downloaded this iteration scaled put of 90.
         # ! It's scaled to 90 because, the arbitrary division of each songs 100
         # ! iterations is (a) 90 for download (b) 5 for conversion & normalization
         # ! and (c) 5 for ID3 tag embedding
-        iterFraction = len(chunk) / fileSize * 90
-
-        self.progress = self.progress + iterFraction
+        self.progress = ratio * 90
         self.update("Downloading")
 
     def notify_youtube_download_completion(self) -> None:
