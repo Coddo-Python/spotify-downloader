@@ -13,6 +13,8 @@ from pathlib import Path
 # ! The following are not used, they are just here for static typechecking with mypy
 from typing import List, Optional
 
+from pytube import YouTube
+
 from spotdl.download.progressuiHandlers import DisplayManager
 from spotdl.download.trackingfileHandlers import DownloadTracker
 from spotdl.search.songObj import SongObj
