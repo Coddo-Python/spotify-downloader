@@ -338,7 +338,7 @@ class DownloadManager:
         # ! The actual download, if there is any error, it'll be here,
         try:
             # ! pyTube will save the song in .\Temp\$songName.mp3, but the file extension may vary,
-            downloadedFilePath = trackAudioStream.download(
+            trackAudioStream.download(
                 filepath=f"./{tempFolder}/{convertedFileName}",
                 quiet=True,
                 callback=dispayProgressTracker.pafy_progress_hook
